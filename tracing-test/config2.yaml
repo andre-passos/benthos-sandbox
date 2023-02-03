@@ -1,0 +1,54 @@
+http:
+  address: 0.0.0.0:4195
+  debug_endpoints: true
+
+input:
+  label: "mysql1"
+  sql_raw:
+    driver: "mysql"
+    dsn: "root:root@tcp(localhost:3307)/4steps"
+    query: "select * from data"
+    #args_mapping: ""
+
+pipeline:
+  threads: 1
+  processors:
+    - resource: mapping_fields
+    #- resource: set_key
+
+processor_resources:
+  - label: mapping_fields
+    mapping: |
+      root.datetime = this.datetime
+      root.value = this.value
+      root.channel = this.channel
+      root.timestamp = now()
+      
+output:
+  kafka:
+    addresses: [localhost:9092 ]
+    topic: a_results
+    client_id: b_client
+    max_in_flight: 100
+    inject_tracing_map: 'meta = this'
+
+tracer:
+  jaeger:
+    agent_address: 'localhost:6831'
+    sampler_param: 0.5
+    tags:
+      pipeline: my_tracing_test
+
+logger:
+  level: DEBUG
+  format: logfmt
+  add_timestamp: false
+  static_fields:
+    '@service': benthos
+
+metrics:
+  prometheus:
+    push_interval: 1s
+    push_job_name: benthos_mysql_kfk
+    push_url: "http://localhost:9091"
+

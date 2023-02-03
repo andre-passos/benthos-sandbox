@@ -1,0 +1,66 @@
+version: '3.9'
+
+volumes:
+  db: null
+
+services:
+  mysql:
+    image: mysql:5.7
+    container_name: lib-mysql
+    ports:
+      - 3307:3306
+    volumes:
+      - db:/var/lib/mysql
+      - ./docker_build/mysql/conf:/etc/mysql/conf.d
+      - ./docker_build/mysql/init.d:/docker-entrypoint-initdb.d
+    restart: always
+    #network_mode: "host"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: 4steps
+      MYSQL_USER: user4steps
+      MYSQL_PASSWORD: 4$s123456
+
+  benthos:
+    image: jeffail/benthos:latest
+    container_name: benthos-0
+    ports:
+      - "6379:6379"    
+    network_mode: "host"
+    volumes:
+      - ./config.yaml:/benthos.yaml
+    depends_on:
+      - mysql
+      - redpanda
+
+  benthos-2:
+    image: jeffail/benthos:latest
+    container_name: benthos-2
+    ports:
+      - "6379:6379"    
+    network_mode: "host"
+    volumes:
+      - ./config2.yaml:/benthos.yaml
+    depends_on:
+      - mysql
+      - redpanda
+
+  # jaeger:
+  #   image: jaegertracing/all-in-one
+  #   container_name: jaeger
+  #   ports:
+  #     - 6831:6831/udp
+  #     - 16686:16686
+    
+  redpanda:
+    image: vectorized/redpanda
+    container_name: redpanda
+    ports:
+      - 9092:9092
+      - 9644:9644
+    command:
+      - 'redpanda start'
+      - '--smp 1'
+      - '--overprovisioned'
+      - '--kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092'
+      - '--advertise-kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092'
